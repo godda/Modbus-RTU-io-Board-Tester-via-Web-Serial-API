@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>โปรแกรมทดสอบบอร์ด I/O MODBUS RTU RS232,RS485</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+      }
+      input,
+      button,
+      select {
+        margin: 5px;
+        padding: 8px;
+      }
+      textarea {
+        width: 90%;
+        height: 200px;
+        margin-top: 10px;
+      }
+      .input-group {
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>โปรแกรมทดสอบบอร์ด I/O MODBUS RTU</h2>
+    <label for="baudRate">Baud Rate:</label>
+    <select id="baudRate">
+      <option value="9600">9600</option>
+      <option value="115200">115200</option>
+      <option value="57600">57600</option>
+      <option value="38400">38400</option>
+    </select>
+    <button onclick="connectSerial()">เชื่อมต่อ</button>
+    <button onclick="disconnectSerial()">ยกเลิกการเชื่อมต่อ</button>
+    <br />
+    <hr />
+
+    <div class="input-group">
+      MODBUS SLAVE ADDRESS<input
+        type="text"
+        id="boardID"
+        placeholder="ID 1-255"
+        style="width: 80px"
+      />
+
+      <br />
+      <button onclick="ioBoard('boardID','050000FF00','val')">
+        OUT 1 : เปิด
+      </button>
+      <button onclick="ioBoard('boardID','0500000000','val')">
+        OUT 1 : ปิด
+      </button>
+      |
+      <button onclick="ioBoard('boardID','0200000008','val')">IN 1</button>
+      <input
+        type="text"
+        id="in1"
+        disabled
+        placeholder="สถานะ"
+        style="width: 40px"
+      />
+      <br />
+      <button onclick="ioBoard('boardID','050001FF00','val')">
+        OUT 2 : เปิด
+      </button>
+      <button onclick="ioBoard('boardID','0500010000','val')">
+        OUT 2 : ปิด
+      </button>
+      |
+      <button onclick="ioBoard('boardID','0200000008','val')">IN 2</button>
+      <input
+        type="text"
+        id="in2"
+        disabled
+        placeholder="สถานะ"
+        style="width: 40px"
+      />
+      <br />
+      <button onclick="ioBoard('boardID','050002FF00','val')">
+        OUT 3 : เปิด
+      </button>
+      <button onclick="ioBoard('boardID','0500020000','val')">
+        OUT 3 : ปิด
+      </button>
+      |
+      <button onclick="ioBoard('boardID','0200000008','val')">IN 3</button>
+      <input
+        type="text"
+        id="in3"
+        disabled
+        placeholder="สถานะ"
+        style="width: 40px"
+      />
+      <br />
+      <button onclick="ioBoard('boardID','050003FF00','val')">
+        OUT 4 : เปิด
+      </button>
+      <button onclick="ioBoard('boardID','0500030000','val')">
+        OUT 4 : ปิด
+      </button>
+      |
+      <button onclick="ioBoard('boardID','0200000008','val')">IN 4</button>
+      <input
+        type="text"
+        id="in4"
+        disabled
+        placeholder="สถานะ"
+        style="width: 40px"
+      />
+      <br />
+      RX DEBUG
+      <input
+        type="text"
+        id="payloadDebug"
+        disabled
+        placeholder="ความยาวข้อมูล : ข้อมูล"
+        style="width: 250px"
+      />
+    </div>
+    <hr />
+
+    <div class="input-group">
+      <input type="text" id="input1" placeholder="ระบุข้อมูลที่ต้องการส่ง" />
+      <select id="format1">
+        <option value="string">String</option>
+        <option value="hex">Hex</option>
+      </select>
+      <button onclick="sendSerialData('input1', 'format1','id')">
+        ส่ง : TX
+      </button>
+    </div>
+
+    <br />
+    <label for="rxFormat">รูปแบบการแสดงผลข้อมูลรับเข้า : RX</label>
+    <select id="rxFormat">
+      <option value="string">String</option>
+      <option value="hex">Hex</option>
+    </select>
+    <textarea id="serialOutput" readonly></textarea>
+
+    <br />
+    Powered by
+    <a href="https://www.facebook.com/godda.binahead" target="_blank"
+      >Chawanwit Poolsri
+    </a>
+
+    <script>
+      let port, reader, writer;
+      let baudRate = 9600;
+
+      async function connectSerial() {
+        try {
+          port = await navigator.serial.requestPort();
+          baudRate = document.getElementById("baudRate").value;
+          await port.open({ baudRate: parseInt(baudRate) });
+
+          reader = port.readable.getReader();
+          writer = port.writable.getWriter();
+
+          readLoop();
+
+          console.log("Connected at baud rate:", baudRate);
+          alert("Connected at baud rate:" + baudRate);
+        } catch (error) {
+          console.error("Error opening serial port:", error);
+          alert("Error opening serial port:" + error);
+        }
+      }
+
+      async function readLoop() {
+        while (port.readable) {
+          try {
+            const { value, done } = await reader.read();
+            if (value.length >= 6 && done) {
+              console.log("Reader closed");
+              break;
+            }
+
+            let rxFormat = document.getElementById("rxFormat").value;
+            let outputArea = document.getElementById("serialOutput");
+
+            let hexString = [...new Uint8Array(value)]
+              .map((b) => b.toString(16).padStart(2, "0"))
+              .join("");
+            document.getElementById("payloadDebug").value =
+              value.length + " : " + hexString;
+            let validate = validateFrame(hexString);
+            if (validate.valid) {
+              showInputStatus(hexString);
+              if (rxFormat === "hex") {
+                outputArea.value += hexString.toUpperCase() + "\n";
+              } else {
+                let text = new TextDecoder().decode(value);
+                outputArea.value += text + "\n";
+              }
+              outputArea.scrollTop = outputArea.scrollHeight;
+            }
+          } catch (error) {
+            console.error("Error reading from serial port:", error);
+          }
+        }
+      }
+      function ioBoard(id, cmd) {
+        let idVal = document.getElementById(id).value;
+        let idHEX = intToHex(idVal, 1);
+        let crc = crc16Modbus(idHEX + cmd);
+        sendSerialData(idHEX + cmd + crc, "hex");
+      }
+
+      function intToHex(intValue, length = 2) {
+        return parseInt(intValue)
+          .toString(16)
+          .padStart(length * 2, "0");
+      }
+
+      function crc16Modbus(hexString) {
+        //http://www.ip33.com/crc.html
+        let crc = 0xffff;
+        let bytes = hexToBytes(hexString);
+
+        for (let byte of bytes) {
+          crc ^= byte;
+          for (let i = 0; i < 8; i++) {
+            if (crc & 1) {
+              crc = (crc >> 1) ^ 0xa001;
+            } else {
+              crc >>= 1;
+            }
+          }
+        }
+
+        let crcHex = crc.toString(16).padStart(4, "0");
+        return crcHex.slice(2) + crcHex.slice(0, 2); // สลับไบต์หน้าหลัง
+      }
+
+      function validateFrame(frame) {
+        if (frame.length < 4) return { valid: false, frame: null }; // ข้อมูลน้อยเกินไป
+
+        let data = frame.slice(0, -4); // ตัดส่วนข้อมูลออกจาก CRC
+        let receivedCrc = frame.slice(-4); // รับค่า CRC ที่ส่งมา
+        let calculatedCrc = crc16Modbus(data); // คำนวณ CRC จากข้อมูล
+
+        if (receivedCrc.toLowerCase() === calculatedCrc.toLowerCase()) {
+          return { valid: true, frame };
+        }
+        return { valid: false, frame: null };
+      }
+
+      function inputBitMapping(hexString) {
+        if (hexString.length < 6) return null; // ตรวจสอบความยาวข้อมูล
+
+        let prefix = hexString.slice(0, 4); // ค่าคู่หน้าและคู่ที่สอง
+        if (prefix.slice(2) !== "02") return null; // ตรวจสอบว่าคู่ที่สองเป็น 02 หรือไม่
+
+        let targetByte = hexString.slice(-6, -4); // ค่าคู่ที่สามจากท้าย
+        return parseInt(targetByte, 16).toString(2).padStart(8, "0"); // แปลงเป็น binary string
+      }
+
+      function showInputStatus(hex) {
+        console.log("HEX:" + hex);
+        let prefix = hex.slice(0, 4); // ค่าคู่หน้าและคู่ที่สอง
+        if (prefix.slice(2) == "02") {
+          // ตรวจสอบว่าคู่ที่สองเป็น 02 หรือไม่
+          let bitStatus = inputBitMapping(hex);
+          console.log("BIT:" + bitStatus);
+
+          document.getElementById("in1").value = bitStatus.slice(-1);
+          document.getElementById("in2").value = bitStatus.slice(-2, -1);
+          document.getElementById("in3").value = bitStatus.slice(-3, -2);
+          document.getElementById("in4").value = bitStatus.slice(-4, -3);
+        }
+      }
+
+      function hexToBytes(hex) {
+        let bytes = [];
+        for (let i = 0; i < hex.length; i += 2) {
+          bytes.push(parseInt(hex.substr(i, 2), 16));
+        }
+        return new Uint8Array(bytes);
+      }
+
+      async function sendSerialData(inputId, formatId, mode) {
+        let data;
+        let format;
+        if (mode == "id") {
+          data = document.getElementById(inputId).value;
+          format = document.getElementById(formatId).value;
+        } else {
+          data = inputId;
+          format = formatId;
+        }
+
+        if (writer && data) {
+          let encodedData;
+          if (format === "hex") {
+            data = data.replace(/\s+/g, ""); // ลบช่องว่างออก
+            if (data.length % 2 !== 0) {
+              alert("Hex ต้องเป็นคู่ เช่น 'A1 B2 3C'");
+              return;
+            }
+            
+            encodedData = hexToBytes(data);
+          } else {
+            encodedData = new TextEncoder().encode(data + "\n");
+          }
+
+          await writer.write(encodedData);
+          console.log("Sent:", data, "as", format);
+        }
+      }
+
+      async function disconnectSerial() {
+        if (reader) {
+          await reader.cancel();
+          reader.releaseLock();
+        }
+        if (writer) {
+          writer.releaseLock();
+        }
+        if (port) {
+          await port.close();
+          alert("Serial Port Closed");
+          console.log("Serial Port Closed");
+        }
+      }
+    </script>
+  </body>
+</html>
