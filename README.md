@@ -36,7 +36,7 @@
 - ตรวจสอบว่าคุณให้สิทธิ์การเข้าถึง Serial Port กับเบราว์เซอร์
 - หากพบปัญหาเกี่ยวกับการเชื่อมต่อ ลองเปลี่ยนพอร์ต USB หรือใช้ตัวแปลง RS485/RS232 ที่รองรับ
 
-![modbus RTU io board](modbus_RTU_io_board.jpg)
+![modbus RTU io board](Modbus_RTU_io_Board_RS232.jpg)
 
 ## ผู้พัฒนา
 [Chawanwit Poolsri](https://www.facebook.com/godda.binahead)
