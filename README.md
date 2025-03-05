@@ -11,6 +11,8 @@
 - ส่งข้อมูลไปยังบอร์ดผ่าน Serial Port
 - ตรวจสอบและคำนวณค่า CRC16 Modbus
 
+![Description](Modbus_RTU_io_Board_web_Serial_Tester.png)
+
 ## วิธีติดตั้งและใช้งาน
 ### 1. เปิดใช้งานบนเว็บเบราว์เซอร์
 โปรแกรมนี้สามารถใช้งานได้บน Google Chrome หรือ Microsoft Edge ที่รองรับ Web Serial API
